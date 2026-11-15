@@ -1,7 +1,8 @@
 /* Dezembro Vermelho · contas, dados individuais e administração (Supabase) */
 const DV={ready:false,mode:'entrar',user:null,profile:null,err:''};
+const T=p=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('Tempo esgotado: o Supabase não respondeu. Verifique a internet e tente de novo.')),20000))]);
 const isAdm=()=>DV.profile?.role==='admin';
-(()=>{const s=document.createElement('style');s.textContent='body:not(.is-admin) [href^="#editor"],body:not(.is-admin) [data-action="export-all"],body:not(.is-admin) .tabs,body:not(.is-admin) .save-state,body:not(.is-admin) .admin-only{display:none!important}.auth{max-width:520px}.auth>.button{width:100%;margin-top:18px}.check{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:12px}.check input{width:auto;min-height:0;margin-top:3px}.link{background:none;border:0;color:var(--red);text-decoration:underline;padding:0;font-size:12px}';document.head.append(s)})();
+(()=>{const s=document.createElement('style');s.textContent='body:not(.is-admin) [href^="#editor"],body:not(.is-admin) [data-action="export-all"],body:not(.is-admin) .tabs,body:not(.is-admin) .save-state,body:not(.is-admin) .admin-only{display:none!important}#toast{z-index:60!important}.auth{max-width:520px}.auth>.button{width:100%;margin-top:18px}.check{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:12px}.check input{width:auto;min-height:0;margin-top:3px}.link{background:none;border:0;color:var(--red);text-decoration:underline;padding:0;font-size:12px}';document.head.append(s)})();
 
 DV.init=async()=>{
   const c=window.DV_CONFIG||{};
@@ -62,19 +63,20 @@ function authView(){
   <label for="a-mail">E-mail</label><input id="a-mail" type="email" required autocomplete="email">
   <label for="a-pass">Senha${n?' (mínimo 8 caracteres)':''}</label><input id="a-pass" type="password" required minlength="${n?8:1}" autocomplete="${n?'new-password':'current-password'}">
   ${n?`<label class="check"><input id="a-ok" type="checkbox" required><span>Tenho 18 anos ou mais, li ${tcle?`<a href="${esc(tcle)}" target="_blank" rel="noopener">o Termo de Consentimento (TCLE)</a>`:'o Termo de Consentimento (TCLE)'} e concordo em participar voluntariamente. Não informo CPF, telefone ou dados de saúde.</span></label>`:''}
+  <p id="a-msg" class="tiny" role="alert" style="color:var(--red);margin-top:12px"></p>
   <button class="button primary">${n?'Criar conta':'Entrar'}</button>
   <p class="tiny" style="margin-top:14px">${n?'Já tem conta?':'Ainda não participa?'} <button type="button" class="link" data-dv="mode" data-m="${n?'entrar':'novo'}">${n?'Entrar':'Criar conta'}</button></p></form>`);
   $('#auth').onsubmit=async e=>{
-    e.preventDefault();const btn=e.target.querySelector('button.primary');btn.disabled=true;
+    e.preventDefault();const btn=e.target.querySelector('button.primary');btn.disabled=true;$('#a-msg').textContent='';
     const email=$('#a-mail').value.trim(),password=$('#a-pass').value;
     try{
       if(n){
-        const{data,error}=await DV.sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname,data:{nome:$('#a-nome').value.trim(),campus:$('#a-campus').value.trim(),curso:$('#a-curso').value.trim(),faixa:$('#a-faixa').value,consent:$('#a-ok').checked}}});
+        const{data,error}=await T(DV.sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname,data:{nome:$('#a-nome').value.trim(),campus:$('#a-campus').value.trim(),curso:$('#a-curso').value.trim(),faixa:$('#a-faixa').value,consent:$('#a-ok').checked}}}));
         if(error)throw error;
         if(!data.session){DV.mode='entrar';gateShow(`<div class="empty"><h2>Confirme seu e-mail</h2><p class="muted">Enviamos um link para ${esc(email)}. Depois de confirmar, volte aqui e entre.</p><button class="button" data-dv="mode" data-m="entrar">Ir para o login</button></div>`);return}
-      }else{const{error}=await DV.sb.auth.signInWithPassword({email,password});if(error)throw error}
-      await DV.load();location.hash='#biblioteca';route();
-    }catch(err){toast(/Invalid login/i.test(err.message)?'E-mail ou senha incorretos.':err.message);btn.disabled=false}
+      }else{const{error}=await T(DV.sb.auth.signInWithPassword({email,password}));if(error)throw error}
+      await T(DV.load());location.hash='#biblioteca';route();
+    }catch(err){console.error(err);$('#a-msg').textContent=/Invalid login/i.test(err.message)?'E-mail ou senha incorretos.':/already registered/i.test(err.message)?'Este e-mail já tem cadastro. Use Entrar.':err.message;btn.disabled=false}
   };
 }
 
