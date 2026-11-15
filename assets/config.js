@@ -4,5 +4,6 @@
 window.DV_CONFIG = {
   url: 'https://yoiqtaypyfkxkekrpxdh.supabase.co',
   key: 'sb_publishable_YznpOk34M1POTJqj6M1gTw_Bfnr9wdM',
+  dominio: 'gmail.com', // usado só para montar um login interno a partir do nome; nenhum e-mail é enviado
   tcle: '' // opcional: link do Termo de Consentimento (TCLE)
 };
