@@ -23,6 +23,7 @@ DV.load=async()=>{
   document.body.classList.toggle('is-admin',adm);
   participant=p.nome;
   $('#whoami').textContent=adm?'Administração':p.nome.split(' ')[0];
+  if(!$('[data-nav=guia]'))$('nav').insertAdjacentHTML('afterbegin','<a href="#guia" data-nav="guia"><span>?</span> Como funciona</a>');
   if(adm&&!$('[data-nav=admin]'))$('nav').insertAdjacentHTML('beforeend','<a href="#admin" data-nav="admin"><span>⚙</span> Administração</a>');
   // Conteúdo dos jogos: participantes sempre recebem a versão publicada pelo admin (ou a padrão)
   const{data:c}=await DV.sb.from('config').select('conteudo').eq('id',1).maybeSingle();
@@ -48,6 +49,7 @@ function DVgate(){
   if(DV.err)return gateShow(`<div class="empty"><h2>Configuração pendente</h2><p class="muted">${esc(DV.err)}</p></div>`);
   if(!DV.profile)return DV.user?gateShow('<div class="empty"><h2>Perfil não encontrado</h2><p class="muted">Saia e entre novamente ou fale com a equipe da pesquisa.</p><button class="button" data-dv="out">Sair</button></div>'):authView();
   document.body.classList.add('dv-ok');
+  if(v==='guia')return guiaView();
   if(v==='admin')return isAdm()?adminView():(location.hash='#biblioteca',true);
   if(v==='editor'&&!isAdm())return location.hash='#jogar/'+(location.hash.split('/')[1]||'pares'),true;
   return false;
@@ -55,6 +57,28 @@ function DVgate(){
 
 const slug=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'.').replace(/^\.+|\.+$/g,'').slice(0,60);
 const loginEmail=t=>{t=t.trim();if(t.includes('@'))return t;const k=slug(t);return k?`${k}@${(window.DV_CONFIG||{}).dominio||'gmail.com'}`:''};
+
+
+function guiaView(){
+  const card=(t,h,b)=>`<article class="content-card"><span class="tag">${t}</span><h2>${h}</h2>${b}</article>`;
+  const grid='display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:28px';
+  const h2=t=>`<h2 style="margin:8px 0 14px">${t}</h2>`;
+  return show(`<div class="page-heading"><div><p class="eyebrow">BEM-VINDO(A)</p><h1>Olá, ${esc(DV.profile.nome.split(' ')[0])}!</h1><p>Esta pesquisa usa quatro jogos curtos sobre prevenção, testagem e cuidado em saúde. Jogue no seu ritmo: não há resposta secreta nem julgamento, e a participação é voluntária.</p></div></div>
+  ${h2('Como usar a página')}
+  <div style="${grid}">
+  ${card('Menu','Menu lateral','<p><b>Biblioteca de jogos</b>: escolha um jogo.<br><b>Conteúdos educativos</b>: leituras sobre os temas.<br><b>Resultados</b>: suas rodadas.<br><b>Informações e serviços</b>: onde buscar atendimento e glossário.<br><b>Como funciona</b>: esta tela.</p>')}
+  ${card('Resultados','O que fica salvo','<p>Cada rodada guarda sua pontuação, tentativas, tempo e se você concluiu. Você pode jogar de novo quando quiser. Só você e a equipe da pesquisa veem esses dados, e não há ranking público.</p>')}
+  ${card('Conta','Sua conta','<p>Clique no círculo <b>DV</b>, no canto superior, para ver seu nome e sair. Para voltar, entre com seu nome completo e sua senha.</p>')}
+  </div>
+  ${h2('Como jogar')}
+  <div style="${grid}">
+  ${card('Memória','Encontre os pares','<p>Vire duas cartas por vez. Se forem iguais, o par fica aberto e revela uma informação sobre o cuidado. Se forem diferentes, tente outra combinação. O jogo termina quando todos os pares forem encontrados.</p>')}
+  ${card('Busca visual','Encontre os detalhes','<p>Observe a cena do campus e toque nos quatro objetos escondidos. Cada acerto abre uma explicação. Se preferir, use a lista de pistas abaixo da cena. Tocar fora dos objetos conta como tentativa.</p>')}
+  ${card('Caça-palavras','Caça-palavras do cuidado','<p>Procure na grade as palavras da lista. Toque nas letras <b>uma a uma</b>, em linha reta (horizontal, vertical ou diagonal), da primeira à última letra. Ao completar uma palavra da lista, ela é marcada. Tocar de novo na última letra desfaz, e o botão <b>Limpar seleção</b> recomeça. Você também pode digitar a palavra no campo abaixo da grade.</p>')}
+  ${card('Roleta','Mito ou Verdade','<p>Gire a roleta, leia a afirmação e responda. Cada resposta libera uma explicação, sem julgamento.</p>')}
+  </div>
+  <a class="button primary" href="#biblioteca">Começar a jogar</a>`);
+}
 
 function authView(){
   const n=DV.mode==='novo',tcle=(window.DV_CONFIG||{}).tcle;
@@ -77,7 +101,7 @@ function authView(){
         if(error)throw error;
         if(!data.session){gateShow('<div class="empty"><h2>Quase lá</h2><p class="muted">O Supabase está exigindo confirmação por e-mail. A equipe precisa desativar “Confirm email” em Authentication &gt; Sign In / Providers &gt; Email.</p></div>');return}
       }else{const{error}=await T(DV.sb.auth.signInWithPassword({email,password}));if(error)throw error}
-      await T(DV.load());location.hash='#biblioteca';route();
+      await T(DV.load());location.hash='#guia';route();
     }catch(err){console.error(err);$('#a-msg').textContent=/Invalid login/i.test(err.message)?'Nome ou senha incorretos.':/already registered/i.test(err.message)?'Já existe um acesso com esse nome. Se é você, use Entrar; se não, acrescente um sobrenome.':err.message;btn.disabled=false}
   };
 }
