@@ -90,11 +90,25 @@ async function adminView(){
   const P=DV.P=p.data.filter(x=>x.role!=='admin'),R=DV.R=r.data,agg=DV.agg={};
   R.forEach(x=>{const a=agg[x.user_id]||(agg[x.user_id]={n:0,c:0,pts:0});a.n++;a.c+=x.concluido?1:0;a.pts+=x.pontos});
   const elig=P.filter(x=>agg[x.id]?.c);
+  const by0=Object.fromEntries(P.map(x=>[x.id,x])),RR=R.filter(x=>by0[x.user_id]).reverse();
+  const jogos=[...new Set(RR.map(x=>x.jogo))].sort(),fmt=t=>Math.floor(t/60)+':'+String(t%60).padStart(2,'0');
+  const nrm=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const resumo=jogos.map(j=>{const L=RR.filter(x=>x.jogo===j);return`<tr><td><b>${esc(j)}</b></td><td>${new Set(L.map(x=>x.user_id)).size}</td><td>${L.length}</td><td>${L.filter(x=>x.concluido).length}</td><td>${Math.round(L.reduce((a,x)=>a+x.pontos,0)/L.length)}</td></tr>`}).join('')||'<tr><td colspan="5">Sem rodadas ainda.</td></tr>';
   show(`<div class="page-heading"><div><p class="eyebrow">ADMINISTRAÇÃO</p><h1>Pesquisa Dezembro Vermelho</h1><p>Dados individuais de cada participante. Visível apenas para administradores.</p></div></div>
   <div class="overview"><div class="stat"><div><b>${P.length}</b><small>Participantes</small></div></div><div class="stat"><div><b>${elig.length}</b><small>Com jogo concluído</small></div></div><div class="stat"><div><b>${R.length}</b><small>Rodadas registradas</small></div></div></div>
-  <div class="editor-actions" style="margin:0 0 20px"><button class="button primary" data-dv="csvp">↓ CSV participantes</button><button class="button primary" data-dv="csvr">↓ CSV resultados</button><button class="button" data-dv="draw">Sortear entre elegíveis</button><button class="button" data-dv="pub">Publicar jogos aos participantes</button></div>
+  <div class="editor-actions" style="margin:0 0 20px"><button class="button primary" data-dv="csvp">↓ CSV participantes</button><button class="button primary" data-dv="csvw">↓ CSV consolidado (1 linha por pessoa)</button><button class="button primary" data-dv="csvr">↓ CSV todas as rodadas</button><button class="button primary" data-dv="csvf">↓ CSV do filtro atual</button><button class="button" data-dv="draw">Sortear entre elegíveis</button><button class="button" data-dv="pub">Publicar jogos aos participantes</button></div>
   <div class="panel results-table"><table><thead><tr><th>Participante</th><th>Faixa</th><th>Rodadas</th><th>Concluídas</th><th>Pontos</th></tr></thead><tbody>${P.map(x=>{const a=agg[x.id]||{n:0,c:0,pts:0};return`<tr><td><b>${esc(x.nome)}</b></td><td>${esc(x.faixa_etaria)}</td><td>${a.n}</td><td>${a.c}</td><td>${a.pts}</td></tr>`}).join('')||'<tr><td colspan="5">Nenhum participante ainda.</td></tr>'}</tbody></table></div>
+  <h2 style="margin:28px 0 12px">Resumo por jogo</h2>
+  <div class="panel results-table"><table><thead><tr><th>Jogo</th><th>Participantes</th><th>Rodadas</th><th>Concluídas</th><th>Pontos (média)</th></tr></thead><tbody>${resumo}</tbody></table></div>
+  <h2 style="margin:28px 0 12px">Resultados de todos</h2>
+  <div class="panel"><div class="two-fields form-fields"><div><label for="f-jogo">Jogo</label><select id="f-jogo"><option value="">Todos</option>${jogos.map(j=>`<option>${esc(j)}</option>`).join('')}</select></div><div><label for="f-nome">Participante</label><input id="f-nome" placeholder="Buscar pelo nome"></div></div><p class="tiny" id="f-count"></p></div>
+  <div class="panel results-table"><table><thead><tr><th>Data</th><th>Participante</th><th>Faixa</th><th>Jogo</th><th>Pontos</th><th>Tentativas</th><th>Tempo</th><th>Concluído</th></tr></thead><tbody id="f-body"></tbody></table></div>
   <div class="note">Pontuação e tempo são calculados no navegador do participante. Os jogos editados por você só chegam aos participantes depois de “Publicar jogos”.</div>`);
+  const redraw=()=>{const j=$('#f-jogo').value,q=nrm($('#f-nome').value.trim());
+    DV.F=RR.filter(x=>(!j||x.jogo===j)&&nrm(by0[x.user_id].nome).includes(q));
+    $('#f-count').textContent=DV.F.length+' rodada(s)'+(DV.F.length>300?' — mostrando as 300 mais recentes; o CSV leva todas.':'');
+    $('#f-body').innerHTML=DV.F.slice(0,300).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString('pt-BR')}</td><td>${esc(by0[x.user_id].nome)}</td><td>${esc(by0[x.user_id].faixa_etaria)}</td><td>${esc(x.jogo)}</td><td>${x.pontos}</td><td>${x.tentativas}</td><td>${fmt(x.tempo_s)}</td><td>${x.concluido?'sim':'não'}</td></tr>`).join('')||'<tr><td colspan="8">Nenhuma rodada encontrada.</td></tr>'};
+  $('#f-jogo').onchange=redraw;$('#f-nome').oninput=redraw;redraw();
 }
 
 function csv(rows,cols,name){
@@ -109,7 +123,10 @@ document.addEventListener('click',async e=>{
   if(!isAdm())return;
   const by=Object.fromEntries((DV.P||[]).map(x=>[x.id,x]));
   if(k==='csvp')csv(DV.P,[['id',x=>x.id],['nome',x=>x.nome],['faixa_etaria',x=>x.faixa_etaria],['consentimento_em',x=>x.consentimento_em],['cadastro_em',x=>x.created_at],['rodadas',x=>DV.agg[x.id]?.n||0],['concluidas',x=>DV.agg[x.id]?.c||0],['pontos',x=>DV.agg[x.id]?.pts||0]],'participantes.csv');
-  if(k==='csvr')csv(DV.R.filter(x=>by[x.user_id]),[['user_id',x=>x.user_id],['nome',x=>by[x.user_id].nome],['faixa_etaria',x=>by[x.user_id].faixa_etaria],['jogo',x=>x.jogo],['pontos',x=>x.pontos],['tentativas',x=>x.tentativas],['tempo_s',x=>x.tempo_s],['concluido',x=>x.concluido?'sim':'não'],['data',x=>x.created_at]],'resultados.csv');
+  if(k==='csvr'||k==='csvf')csv(k==='csvf'?DV.F:DV.R.filter(x=>by[x.user_id]),[['user_id',x=>x.user_id],['nome',x=>by[x.user_id].nome],['faixa_etaria',x=>by[x.user_id].faixa_etaria],['jogo',x=>x.jogo],['pontos',x=>x.pontos],['tentativas',x=>x.tentativas],['tempo_s',x=>x.tempo_s],['concluido',x=>x.concluido?'sim':'não'],['data',x=>x.created_at]],k==='csvf'?'resultados-filtrados.csv':'resultados.csv');
+  if(k==='csvw'){const jg=[...new Set(DV.R.map(x=>x.jogo))].sort(),m={};
+    DV.R.forEach(x=>{const a=m[x.user_id+'|'+x.jogo]||(m[x.user_id+'|'+x.jogo]={n:0,best:0,ok:false});a.n++;a.best=Math.max(a.best,x.pontos);a.ok=a.ok||x.concluido});
+    csv(DV.P,[['nome',x=>x.nome],['faixa_etaria',x=>x.faixa_etaria],['cadastro_em',x=>x.created_at],...jg.flatMap(j=>[[j+' · rodadas',x=>m[x.id+'|'+j]?.n||0],[j+' · melhor pontuação',x=>m[x.id+'|'+j]?.best||0],[j+' · concluído',x=>m[x.id+'|'+j]?.ok?'sim':'não']])],'consolidado.csv')}
   if(k==='draw'){const el=DV.P.filter(x=>DV.agg[x.id]?.c);if(!el.length)return toast('Ninguém concluiu um jogo ainda.');
     const w=el[crypto.getRandomValues(new Uint32Array(1))[0]%el.length];
     openDialog('Sorteio',`<p><b>${esc(w.nome)}</b><br>${esc(w.faixa_etaria)}</p><p class="tiny">${el.length} participantes elegíveis (ao menos um jogo concluído). O resultado não é gravado.</p>`)}
