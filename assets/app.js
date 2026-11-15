@@ -6,15 +6,17 @@ const isAdm=()=>DV.profile?.role==='admin';
 DV.init=async()=>{
   const c=window.DV_CONFIG||{};
   if(!c.url||c.url.includes('SEU-PROJETO')||!window.supabase){DV.ready=true;DV.err='Preencha assets/config.js com a URL e a chave pública do Supabase (veja o README).';return route()}
-  DV.sb=supabase.createClient(c.url,c.key);
+  try{DV.sb=supabase.createClient(c.url,c.key);
   $('#participant').onclick=()=>{if(!DV.profile){location.hash='#entrar';return}
     openDialog('Minha conta',`<p><b>${esc(DV.profile.nome)}</b><br>${esc(DV.profile.email)}</p><button class="button" data-dv="out">Sair da conta</button>`)};
-  await DV.load();DV.ready=true;route();
+  await DV.load()}catch(e){DV.err='Erro ao conectar ao Supabase: '+(e.message||e)}
+  DV.ready=true;route();
 };
 DV.load=async()=>{
   const{data:{session}}=await DV.sb.auth.getSession();
   DV.user=session?.user||null;DV.profile=null;if(!DV.user)return;
-  const{data:p}=await DV.sb.from('profiles').select('*').eq('id',DV.user.id).maybeSingle();
+  const{data:p,error:pe}=await DV.sb.from('profiles').select('*').eq('id',DV.user.id).maybeSingle();
+  if(pe)throw pe;
   DV.profile=p;if(!p)return;
   const adm=p.role==='admin';
   document.body.classList.toggle('is-admin',adm);
@@ -38,14 +40,13 @@ DV.save=async r=>{
 };
 
 const show=h=>{$('#main').innerHTML=h;const v=location.hash.slice(1).split('/')[0];$$('[data-nav]').forEach(a=>a.classList.toggle('active',a.dataset.nav===v));$('#main').focus();return true};
+const gateShow=h=>{document.body.classList.remove('dv-ok');$('#dvgate').innerHTML='<div class="dvbox">'+h+'</div>';return true};
 function DVgate(){
   const v=location.hash.slice(1).split('/')[0]||'biblioteca';
-  if(!DV.ready)return show('<p class="muted">Carregando…</p>');
-  if(DV.err)return show(`<div class="empty"><h2>Configuração pendente</h2><p class="muted">${esc(DV.err)}</p></div>`);
-  if(!DV.profile){
-    if(v==='informacoes')return false;
-    return DV.user?show('<div class="empty"><h2>Perfil não encontrado</h2><p class="muted">Saia e entre novamente ou fale com a equipe da pesquisa.</p><button class="button" data-dv="out">Sair</button></div>'):authView();
-  }
+  if(!DV.ready)return gateShow('<p class="muted">Carregando…</p>');
+  if(DV.err)return gateShow(`<div class="empty"><h2>Configuração pendente</h2><p class="muted">${esc(DV.err)}</p></div>`);
+  if(!DV.profile)return DV.user?gateShow('<div class="empty"><h2>Perfil não encontrado</h2><p class="muted">Saia e entre novamente ou fale com a equipe da pesquisa.</p><button class="button" data-dv="out">Sair</button></div>'):authView();
+  document.body.classList.add('dv-ok');
   if(v==='admin')return isAdm()?adminView():(location.hash='#biblioteca',true);
   if(v==='editor'&&!isAdm())return location.hash='#jogar/'+(location.hash.split('/')[1]||'pares'),true;
   return false;
@@ -53,7 +54,7 @@ function DVgate(){
 
 function authView(){
   const n=DV.mode==='novo',tcle=(window.DV_CONFIG||{}).tcle;
-  show(`<div class="page-heading"><div><p class="eyebrow">DEZEMBRO VERMELHO · UNILEÃO</p><h1>${n?'Criar minha conta':'Entrar'}</h1><p>${n?'Cada participante tem um login individual. Pesquisa para maiores de 18 anos.':'Acesse com o e-mail e a senha cadastrados.'}</p></div></div>
+  gateShow(`<div class="page-heading"><div><p class="eyebrow">DEZEMBRO VERMELHO · UNILEÃO</p><h1>${n?'Criar minha conta':'Entrar'}</h1><p>${n?'Cada participante tem um login individual. Pesquisa para maiores de 18 anos.':'Acesse com o e-mail e a senha cadastrados.'}</p></div></div>
   <form class="panel form-fields auth" id="auth">
   ${n?`<label for="a-nome">Nome completo</label><input id="a-nome" required maxlength="120" autocomplete="name">
   <div class="two-fields"><div><label for="a-campus">Campus / unidade</label><input id="a-campus" required maxlength="60"></div><div><label for="a-curso">Curso</label><input id="a-curso" required maxlength="80"></div></div>
@@ -70,7 +71,7 @@ function authView(){
       if(n){
         const{data,error}=await DV.sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname,data:{nome:$('#a-nome').value.trim(),campus:$('#a-campus').value.trim(),curso:$('#a-curso').value.trim(),faixa:$('#a-faixa').value,consent:$('#a-ok').checked}}});
         if(error)throw error;
-        if(!data.session){DV.mode='entrar';show(`<div class="empty"><h2>Confirme seu e-mail</h2><p class="muted">Enviamos um link para ${esc(email)}. Depois de confirmar, volte aqui e entre.</p><button class="button" data-dv="mode" data-m="entrar">Ir para o login</button></div>`);return}
+        if(!data.session){DV.mode='entrar';gateShow(`<div class="empty"><h2>Confirme seu e-mail</h2><p class="muted">Enviamos um link para ${esc(email)}. Depois de confirmar, volte aqui e entre.</p><button class="button" data-dv="mode" data-m="entrar">Ir para o login</button></div>`);return}
       }else{const{error}=await DV.sb.auth.signInWithPassword({email,password});if(error)throw error}
       await DV.load();location.hash='#biblioteca';route();
     }catch(err){toast(/Invalid login/i.test(err.message)?'E-mail ou senha incorretos.':err.message);btn.disabled=false}
