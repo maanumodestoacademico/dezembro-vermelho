@@ -73,7 +73,7 @@ function guiaView(){
   ${h2('Como jogar')}
   <div style="${grid}">
   ${card('Memória','Encontre os pares','<p>Vire duas cartas por vez. Se forem iguais, o par fica aberto e revela uma informação sobre o cuidado. Se forem diferentes, tente outra combinação. O jogo termina quando todos os pares forem encontrados.</p>')}
-  ${card('Busca visual','Encontre os detalhes','<p>Observe a cena do campus e toque nos quatro objetos escondidos. Cada acerto abre uma explicação. Se preferir, use a lista de pistas abaixo da cena. Tocar fora dos objetos conta como tentativa.</p>')}
+  ${card('Busca visual','Encontre os detalhes','<p>Leia as dicas abaixo da cena: cada uma descreve um objeto. Encontre e toque nos nove objetos escondidos no campus. Cada acerto abre uma explicação e marca a dica como concluída. Tocar fora dos objetos conta como tentativa.</p>')}
   ${card('Caça-palavras','Caça-palavras do cuidado','<p>Procure na grade as palavras da lista. Toque nas letras <b>uma a uma</b>, em linha reta (horizontal, vertical ou diagonal), da primeira à última letra. Ao completar uma palavra da lista, ela é marcada. Tocar de novo na última letra desfaz, e o botão <b>Limpar seleção</b> recomeça. Você também pode digitar a palavra no campo abaixo da grade.</p>')}
   ${card('Roleta','Mito ou Verdade','<p>Gire a roleta, leia a afirmação e responda. Cada resposta libera uma explicação, sem julgamento.</p>')}
   </div>
